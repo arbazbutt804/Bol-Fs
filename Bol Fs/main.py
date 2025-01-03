@@ -43,7 +43,6 @@ def analyze_listing(uploaded_file):
 
 def update_excel_with_rating(listing_df, access_token):
     filtered_data = []
-    # Set up headers for the API request
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/vnd.retailer.v9+json'
