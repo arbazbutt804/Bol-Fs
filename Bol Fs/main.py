@@ -2,7 +2,7 @@ import base64
 import csv
 import logging
 import time
-from io import BytesIO
+from io import BytesIO, TextIOWrapper
 
 import pandas as pd
 import requests
@@ -70,10 +70,11 @@ def write_filtered_ratings(data):
     try:
         # Create a BytesIO object to store the CSV data
         output = BytesIO()
-        writer = csv.writer(output)
-        writer.writerow(["ean", "sku", "id", "rating"])
-        for row in data:
-            writer.writerow(row)
+        with TextIOWrapper(output, encoding='utf-8', newline='') as text_wrapper:
+            writer = csv.writer(text_wrapper)
+            writer.writerow(["ean", "sku", "id", "rating"])
+            for row in data:
+                writer.writerow(row)
         logging.info("Filtered ratings written to CSV successfully.")
 
         output.seek(0)
