@@ -76,6 +76,9 @@ def write_filtered_ratings(data):
             writer.writerow(row)
         logging.info("Filtered ratings written to CSV successfully.")
 
+        st.info("CSV content written to StringIO:")
+        print(output.getvalue())
+        logging.info(output.getvalue())
         output.seek(0)
         # Convert the StringIO data to bytes and store it in a BytesIO object
         output_bytes = BytesIO(output.getvalue().encode('utf-8'))
