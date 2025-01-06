@@ -100,7 +100,7 @@ def update_excel_with_sku_description():
         df_csv['Sku code'] = df_csv['Sku code'].astype(str)
 
         # Read the original filtered_ratings.csv into a DataFrame
-        df_excel = pd.read_csv(input_file)
+        df_excel = pd.read_excel(input_file)
         df_excel['sku'] = df_excel['sku'].astype(str)
 
         # Merge based on 'sku' and 'Sku code'
