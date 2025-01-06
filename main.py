@@ -1,34 +1,30 @@
+import base64
 import csv
 import logging
+import time
+from io import BytesIO, StringIO
+
 import pandas as pd
 import requests
-import time
-import os
 import streamlit as st
-import json
 
-from io import StringIO, BytesIO
-from dotenv import load_dotenv
-from numpy.f2py.crackfortran import n
-
-from MarketplaceConnector import MarketplaceCommunication
-
-# Set up logging with time and date
+# Set up basic logging configuration
 logging.basicConfig(
-    filename='bol_log.txt',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    level=logging.DEBUG,  # Set logging level to DEBUG, INFO, WARNING, ERROR
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),  # Logs to the terminal (good for Streamlit Cloud)
+        #logging.FileHandler("app.log")  # Logs to a file (optional)
+    ]
 )
 
-load_dotenv()
 # Marketplace API setup
-MARKETPLACE_BASE_URL = os.getenv("MARKETPLACE_BASE_URL")
-AWS_CLIENT_ID = os.getenv("AWS_CLIENT_ID")
-AWS_CLIENT_SECRET = os.getenv("AWS_CLIENT_SECRET")
-AWS_TOKEN_URL = os.getenv("AWS_TOKEN_URL")
+MARKETPLACE_BASE_URL= st.secrets["MARKETPLACE_BASE_URL"]
+BOL_CLIENT_ID = st.secrets["BOL_CLIENT_ID"]
+BOL_CLIENT_SECRET= st.secrets["BOL_CLIENT_SECRET"]
+BOL_TOKEN_URL= st.secrets["BOL_TOKEN_URL"]
 marketplace_name = "bol"
-OUTPUT_CSV = "filtered_ratings.csv"
+
 # Initialize session state for keeping track of file paths
 if "output_file" not in st.session_state:
     st.session_state.output_file = None
@@ -39,15 +35,14 @@ def analyze_listing(uploaded_file):
         logging.info(f"Successfully read CSV file: {uploaded_file}, {len(df)} rows found.")
         return df
     except Exception as e:
-        logging.error(f"Error reading CSV file {uploaded_file}: {e}")
+        st.error(f"Error reading CSV file {uploaded_file}: {e}")
         raise
     except Exception as e:
-        logging.error(f"An unexpected error occurred during the Processing of Listing: {e}")
-        st.error("An unexpected error occurred during the Processing of Listing")
+        logging.error(f"An unexpected error occurred during the Processing of Listing File: {e}")
+        st.error("An unexpected error occurred during the Processing of Listing File")
 
-def update_excel_with_rating(listing_df, access_token, marketplace_communication):
+def update_excel_with_rating(listing_df, access_token):
     filtered_data = []
-    # Set up headers for the API request
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/vnd.retailer.v9+json'
@@ -55,7 +50,7 @@ def update_excel_with_rating(listing_df, access_token, marketplace_communication
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
-        ratings_response = marketplace_communication.get_product_ratings(ean, headers)
+        ratings_response = get_product_ratings(ean, headers)
         ratings = ratings_response.get("ratings", []) if ratings_response else []
 
         # Filter ratings of 1, 2, or 3 with count > 0
@@ -71,16 +66,27 @@ def update_excel_with_rating(listing_df, access_token, marketplace_communication
     return filtered_data
 
 def write_filtered_ratings(data):
-    logging.info(f"Writing filtered ratings to {OUTPUT_CSV}...")
+    logging.info(f"Writing filtered ratings to filtered_ratings.csv ...")
     try:
-        with open(OUTPUT_CSV, 'w', newline='') as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(["ean", "sku", "id", "rating"])
-            for row in data:
-                writer.writerow(row)
+        # Create a BytesIO object to store the CSV data
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ean", "sku", "id", "rating"])
+        for row in data:
+            writer.writerow(row)
+        logging.info("Filtered ratings written to CSV successfully.")
+
+        st.info("CSV content written to StringIO:")
+        print(output.getvalue())
+        logging.info(output.getvalue())
+        output.seek(0)
+        # Convert the StringIO data to bytes and store it in a BytesIO object
+        output_bytes = BytesIO(output.getvalue().encode('utf-8'))
+        # Store the updated file in session state
+        st.session_state.output_file = output_bytes
         logging.info("Filtered ratings written to CSV successfully.")
     except Exception as e:
-        logging.error(f"Error writing filtered ratings to CSV: {e}")
+        st.error(f"Error writing filtered ratings to CSV: {e}")
 
 
 def update_excel_with_sku_description():
@@ -88,9 +94,8 @@ def update_excel_with_sku_description():
         logging.info("Starting to update filtered_ratings.csv with SKU description.")
         print("Starting to update filtered_ratings.csv with SKU description.")
 
-        # Open the existing Excel file for reading
-        input_file = 'filtered_ratings.csv'
-        output_file = 'filtered_ratings - Desc Added.xlsx'
+        # Load the Excel file from session state
+        input_file = st.session_state.output_file
         csv_file = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS_mN7-KwnH2aN-afhBMbM_1IlBylxwgJByEkQU5M3HJQuSDx8-pk3HwaJ5TOLgNeD0SGcdgHikloFK/pub?gid=788370787&single=true&output=csv'
 
         # Read the CSV file into a DataFrame
@@ -109,7 +114,15 @@ def update_excel_with_sku_description():
         merged_df.drop(columns=['Sku code'], inplace=True)
 
         # Save the merged DataFrame as an Excel file
-        merged_df.to_excel(output_file, index=False)
+        # Create a BytesIO object to store the CSV data
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            merged_df.to_excel(writer, sheet_name="Sheet1",index=False)
+        logging.info("Filtered ratings written to CSV successfully.")
+
+        output.seek(0)
+        # Store the updated file in session state
+        st.session_state.output_file = output
         logging.info("Successfully updated filtered_ratings file with SKU description information. Saved as filtered_ratings - Desc Added.xlsx")
 
     except Exception as e:
@@ -122,9 +135,8 @@ def update_excel_with_f1_to_use():
         logging.info("Starting to update F1s - Desc Added.xlsx with F1 to Use.")
         print("Starting to update F1s - Desc Added.xlsx with F1 to Use.")
 
-        # Open the existing Excel file for reading
-        input_file = 'filtered_ratings - Desc Added.xlsx'
-        output_file = 'filtered_ratings_with_desc_and_F1_to_use.xlsx'
+        # Load the existing Excel file from session state
+        input_file = st.session_state.output_file
 
         # Fetch the CSV file from the URL
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxBqpSTMwezeOji3KXDlrp3855sQHFuYxmKsCIDwILg4iHMEx2BBmp87nwEgI__4g3rM6H65rIp0sF/pub?gid=0&single=true&output=csv"
@@ -148,15 +160,18 @@ def update_excel_with_f1_to_use():
                 f1_to_use_values.append(None)
 
         df_excel['F1 to Use'] = f1_to_use_values
-        # Open a new Excel writer and write data
-        with pd.ExcelWriter(output_file) as writer:
+        # Write the updated data back to a BytesIO object
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             for sheet, df in df_dict.items():
                 logging.info(f"Writing updated data to sheet {sheet}.")
                 df.to_excel(writer, sheet_name=sheet, index=False)
 
-        logging.info(f"Successfully updated {output_file} with F1 to Use.")
+        logging.info(f"Successfully updated Excel file with F1 to Use information.")
+        output.seek(0)  # Reset the pointer of the BytesIO object
+        st.session_state.output_file = output
     except Exception as e:
-        logging.error(f"An error occurred while updating the Excel file with F1 to Use: {e}")
+        st.error(f"An error occurred while updating the Excel file with F1 to Use: {e}")
 
 
 def update_excel_with_barcodes(uploaded_barcodes):
@@ -164,7 +179,7 @@ def update_excel_with_barcodes(uploaded_barcodes):
         logging.info("Updating filtered_ratings_with_desc_and_F1_to_use.xlsx with Barcodes.")
         print("Updating filtered_ratings_with_desc_and_F1_to_use.xlsx with Barcodes.")
 
-        input_file = 'filtered_ratings_with_desc_and_F1_to_use.xlsx'
+        input_file = st.session_state.output_file
         df_barcodes = pd.read_csv(uploaded_barcodes, header=3)
 
         xls = pd.ExcelFile(input_file)
@@ -216,11 +231,60 @@ def update_excel_with_barcodes(uploaded_barcodes):
         logging.error(f"An error occurred while updating the Excel file with Barcodes: {e}")
         st.error("An error occurred while updating the Excel file with Barcodes")
 
+def get_access_token():
+    logging.info("Fetching access token...")
+    credentials = f"{BOL_CLIENT_ID}:{BOL_CLIENT_SECRET}"
+    encoded_credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
+    headers = {
+        "Authorization": f"Basic {encoded_credentials}",
+        "Accept": "application/json"
+    }
+    try:
+        # Make the request to get access token
+        response = requests.post(BOL_TOKEN_URL, headers=headers)
+
+        # Check if request was successful
+        if response.status_code == 200:
+            token_data = response.json()
+            #print(f"response {token_data}.")
+            access_token = token_data['access_token']
+            return access_token
+        else:
+            message = f"Error fetching access token: {response.status_code} - {response.text}"
+            return None
+    except Exception as e:
+        message = f"Exception occurred while fetching access token: {str(e)}"
+        return None
+
+def get_product_ratings(ean, headers):
+    logging.info(f"Fetching product ratings for EAN: {ean}")
+    try:
+        url = f"https://api.bol.com/retailer/products/{ean}/ratings"
+        response = requests.get(url, headers=headers)
+
+        # If response is 401 Unauthorized, reauthorize and retry
+        if response.status_code == 401:
+            logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
+            headers['Authorization'] = "Bearer " + get_access_token()
+            response = requests.get(url, headers=headers)
+
+        # If response is 404 Not Found, log and return None
+        if response.status_code == 404:
+            logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
+            return None
+
+        response.raise_for_status()
+        logging.info(f"Successfully fetched ratings for EAN: {ean}")
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
+        return None
+    except Exception as e:
+        logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
+        return None
 
 
 def main():
-    marketplace_communication = MarketplaceCommunication(MARKETPLACE_BASE_URL, AWS_CLIENT_ID, AWS_CLIENT_SECRET,
-                                                         AWS_TOKEN_URL, marketplace_name)
     st.set_page_config(page_title="BOL File Processor", page_icon="📄")
 
     st.markdown(
@@ -250,9 +314,9 @@ def main():
         with st.spinner("Processing your files. This may take a few moments..."):
             listing_df = analyze_listing(uploaded_file)
             if listing_df is not None:
-                access_token = marketplace_communication.get_access_token()
+                access_token = get_access_token()
                 if access_token:
-                    filtered_rating_data = update_excel_with_rating(listing_df,access_token,marketplace_communication)
+                    filtered_rating_data = update_excel_with_rating(listing_df,access_token)
                     if filtered_rating_data:
                         write_filtered_ratings(filtered_rating_data)
                         update_excel_with_sku_description()
