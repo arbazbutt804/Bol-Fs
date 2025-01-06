@@ -159,12 +159,12 @@ def update_excel_with_f1_to_use():
                 f1_to_use_values.append(None)
 
         df_excel['F1 to Use'] = f1_to_use_values
+        df_dict['Sheet1'] = df_excel
         # Write the updated data back to a BytesIO object
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            for sheet, df in df_dict.items():
-                logging.info(f"Writing updated data to sheet {sheet}.")
-                df.to_excel(writer, sheet_name=sheet, index=False)
+            logging.info(f"Writing updated data to sheet.")
+            df_excel.to_excel(writer, sheet_name='Sheet1', index=False)
 
         logging.info(f"Successfully updated Excel file with F1 to Use information.")
         output.seek(0)  # Reset the pointer of the BytesIO object
