@@ -137,7 +137,9 @@ def update_excel_with_f1_to_use():
 
         # Fetch the CSV file from the URL
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxBqpSTMwezeOji3KXDlrp3855sQHFuYxmKsCIDwILg4iHMEx2BBmp87nwEgI__4g3rM6H65rIp0sF/pub?gid=0&single=true&output=csv"
-        df_csv = pd.read_csv(url)
+        response = requests.get(url)
+        csv_data = StringIO(response.text)
+        df_csv = pd.read_csv(csv_data)
         # Store dataframes temporarily
         df_dict = {}
 
