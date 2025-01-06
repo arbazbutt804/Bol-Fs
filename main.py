@@ -319,9 +319,9 @@ def main():
                     filtered_rating_data = update_excel_with_rating(listing_df,access_token)
                     if filtered_rating_data:
                         write_filtered_ratings(filtered_rating_data)
-                        update_excel_with_sku_description()
-                        update_excel_with_f1_to_use()
-                        update_excel_with_barcodes(uploaded_barcodes)
+                        #update_excel_with_sku_description()
+                        #update_excel_with_f1_to_use()
+                        #update_excel_with_barcodes(uploaded_barcodes)
     # Check if the output file exists and show download button
     if st.session_state.output_file is not None:
         # Use Streamlit columns to place buttons side-by-side
