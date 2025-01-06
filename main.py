@@ -68,22 +68,19 @@ def update_excel_with_rating(listing_df, access_token):
 def write_filtered_ratings(data):
     logging.info(f"Writing filtered ratings to filtered_ratings.csv ...")
     try:
-        # Create a BytesIO object to store the CSV data
-        output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["ean", "sku", "id", "rating"])
-        for row in data:
-            writer.writerow(row)
-        logging.info("Filtered ratings written to CSV successfully.")
+        df = pd.DataFrame(data, columns=["ean", "sku", "id", "rating"])
+        # Create a BytesIO object to save the Excel file
+        output = BytesIO()
+        # Write the DataFrame to an Excel file in the BytesIO object
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Sheet1')
 
+        # Seek to the beginning of the BytesIO object
+        output.seek(0)
+        logging.info("Filtered ratings written to CSV successfully.")
         st.info("CSV content written to StringIO:")
         print(output.getvalue())
-        logging.info(output.getvalue())
-        output.seek(0)
-        # Convert the StringIO data to bytes and store it in a BytesIO object
-        output_bytes = BytesIO(output.getvalue().encode('utf-8'))
-        # Store the updated file in session state
-        st.session_state.output_file = output_bytes
+        st.session_state.output_file = output
         logging.info("Filtered ratings written to CSV successfully.")
     except Exception as e:
         st.error(f"Error writing filtered ratings to CSV: {e}")
