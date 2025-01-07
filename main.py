@@ -32,8 +32,7 @@ if "output_file" not in st.session_state:
 def analyze_listing():
     try:
         csv_file = 'https://files.channable.com/n8wWOX9ZCS6umlM-vKHUIw==.csv'
-
-        df = pd.read_csv(csv_file)
+        df = pd.read_csv(csv_file, delimiter='\t')
         logging.info(f"Successfully read CSV file {len(df)} rows found.")
         return df
     except Exception as e:
