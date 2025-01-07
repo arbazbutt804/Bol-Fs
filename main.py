@@ -81,7 +81,6 @@ def write_filtered_ratings(data):
         output.seek(0)
         logging.info("Filtered ratings written to CSV successfully.")
         st.info("CSV content written to StringIO:")
-        print(output.getvalue())
         st.session_state.output_file = output
         logging.info("Filtered ratings written to CSV successfully.")
     except Exception as e:
