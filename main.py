@@ -51,6 +51,7 @@ def update_excel_with_rating(listing_df, access_token):
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
+        ean = int(ean)
         ratings_response = get_product_ratings(ean, headers)
         ratings = ratings_response.get("ratings", []) if ratings_response else []
 
