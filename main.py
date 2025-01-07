@@ -33,6 +33,8 @@ def analyze_listing():
     try:
         csv_file = 'https://files.channable.com/n8wWOX9ZCS6umlM-vKHUIw==.csv'
         df = pd.read_csv(csv_file, delimiter='\t')
+        print(df)
+        print (df.values)
         logging.info(f"Successfully read CSV file {len(df)} rows found.")
         return df
     except Exception as e:
