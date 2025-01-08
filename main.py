@@ -478,7 +478,7 @@ def main():
         with col3:
             if st.button("Create Asana Tasks"):
                 st.info("Starting Asana task creation...")
-                create_asana_tasks_from_excel(send_to_asana=False)  # Call your function here
+                create_asana_tasks_from_excel(send_to_asana=True)  # Call your function here
                 st.success("Asana tasks created successfully!")
 
 if __name__ == "__main__":
