@@ -422,6 +422,8 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             st.write(f"1 {task_gid}.")
 
             # Upload the CSV file as an attachment to the task
+            # Adjust headers for file upload
+            headers.pop("content-type", None)
             upload_url = f"https://app.asana.com/api/1.0/tasks/{task_gid}/attachments"
             files = {'file': (
             'bol_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
