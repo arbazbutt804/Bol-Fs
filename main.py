@@ -64,7 +64,7 @@ def update_excel_with_rating(listing_df, access_token):
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         # Delay for rate limiting
-        time.sleep(1.2)
+        time.sleep(0.5)
     return filtered_data
 
 def write_filtered_ratings(data):
