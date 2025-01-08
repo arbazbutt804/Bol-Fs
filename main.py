@@ -61,7 +61,7 @@ def update_excel_with_rating(listing_df, access_token):
 
         if valid_ratings:
             min_rating = min(valid_ratings)
-            filtered_data.append([ean, row['sku'], row['id'],row['title'], min_rating])
+            filtered_data.append([ean, row['sku'], row['id'], min_rating])
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         # Delay for rate limiting
@@ -71,7 +71,7 @@ def update_excel_with_rating(listing_df, access_token):
 def write_filtered_ratings(data):
     logging.info(f"Writing filtered ratings to filtered_ratings.csv ...")
     try:
-        df = pd.DataFrame(data, columns=["ean", "sku", "id","title", "rating"])
+        df = pd.DataFrame(data, columns=["ean", "sku", "id", "rating"])
         # Create a BytesIO object to save the Excel file
         output = BytesIO()
         # Write the DataFrame to an Excel file in the BytesIO object
@@ -253,7 +253,7 @@ def get_access_token():
             message = f"Error fetching access token: {response.status_code} - {response.text}"
             return None
     except Exception as e:
-        message = f"Exception occurred while fetching access token: {str(e)}"
+        st.error(f"Exception occurred while fetching access token: {str(e)}")
         return None
 
 def get_product_ratings(ean, headers):
@@ -325,7 +325,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                     ean_value = str(ean_value)
 
                 # Value is valid, proceed with task creation
-                task_name = f"F1 for {row['sku']} - {row['title']}"
+                task_name = f"F1 for {row['sku']} - {row['Sku description']}"
 
                 if task_name in existing_task_names:
                     logging.warning(
@@ -384,7 +384,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                     # Add to the list of tasks needing new EANs
                     new_eans_needed.append({
                         'Seller SKU': row['sku'],
-                        'Sku description': row['title']
+                        'Sku description': row['Sku description']
                     })
 
     if new_eans_needed:
