@@ -320,9 +320,8 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             elif isinstance(ean_value, float) and not pd.isna(ean_value):
                 ean_value = str(int(ean_value))
 
-            if pd.notna(ean_value) and isinstance(ean_value, str):
-                if isinstance(ean_value, int):
-                    ean_value = str(ean_value)
+            if pd.notna(ean_value) and (isinstance(ean_value, str) or isinstance(ean_value, int)):
+                ean_value = str(ean_value)
 
                 # Value is valid, proceed with task creation
                 task_name = f"F1 for {row['sku']} - {row['Sku description']}"
