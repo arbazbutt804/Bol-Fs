@@ -335,44 +335,45 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                 new_f1_ean = ean_value.replace("'", "")  # Remove single quotes
                 new_f1_brand = row['GS1 Brand']
                 projects = ['1205436216136693']
+                all_skus_data.append([sku_to_f1, new_f1_sku, new_f1_ean, new_f1_brand])
 
-                notes_content = (f"<body><b>SKU to be F1'd:</b> {sku_to_f1}\n"
-                                 f"<b>New F1 SKU:</b> {new_f1_sku}\n"
-                                 f"<b>New F1 EAN:</b> {new_f1_ean}\n"
-                                 f"<b>New F1 Brand:</b> {new_f1_brand}\n"
-                                 "\n"
-                                 "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
+                # notes_content = (f"<body><b>SKU to be F1'd:</b> {sku_to_f1}\n"
+                #                  f"<b>New F1 SKU:</b> {new_f1_sku}\n"
+                #                  f"<b>New F1 EAN:</b> {new_f1_ean}\n"
+                #                  f"<b>New F1 Brand:</b> {new_f1_brand}\n"
+                #                  "\n"
+                #                  "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
 
-                # Look up the tag ID based on the sheet name
-                tags = ['1205436216136702']
-
-                payload = {
-                    "data": {
-                        "projects": projects,
-                        "name": task_name,
-                        "html_notes": notes_content,
-                        "tags": tags  # Use the looked-up tag ID here
-                    }
-                }
-
-                response = requests.post(url, json=payload, headers=headers)
-                print(f"Sending payload: {payload}")
-                task_data = response.json()
+                # # Look up the tag ID based on the sheet name
+                # tags = ['1205436216136702']
+                #
+                # payload = {
+                #     "data": {
+                #         "projects": projects,
+                #         "name": task_name,
+                #         "html_notes": notes_content,
+                #         "tags": tags  # Use the looked-up tag ID here
+                #     }
+                # }
+                #
+                # response = requests.post(url, json=payload, headers=headers)
+                # print(f"Sending payload: {payload}")
+                # task_data = response.json()
 
                 # Check if task creation was successful and move it to the appropriate section
-                if 'data' in task_data and 'gid' in task_data['data']:
-                    task_gid = task_data['data']['gid']
-                    section_id = ['1205436216136695']
-                    move_url = f"https://app.asana.com/api/1.0/sections/{section_id}/addTask"
-                    move_payload = {
-                        "data": {
-                            "task": task_gid
-                        }
-                    }
-                    move_response = requests.post(move_url, json=move_payload, headers=headers)
-                    print(f"Moved task {task_gid} to section {section_id}. Response: {move_response.json()}")
-                else:
-                    logging.error(f"Failed to create task for SKU {row['sku']} in country Netherland. Response: {task_data}")
+                # if 'data' in task_data and 'gid' in task_data['data']:
+                #     task_gid = task_data['data']['gid']
+                #     section_id = ['1205436216136695']
+                #     move_url = f"https://app.asana.com/api/1.0/sections/{section_id}/addTask"
+                #     move_payload = {
+                #         "data": {
+                #             "task": task_gid
+                #         }
+                #     }
+                #     move_response = requests.post(move_url, json=move_payload, headers=headers)
+                #     print(f"Moved task {task_gid} to section {section_id}. Response: {move_response.json()}")
+                # else:
+                #     logging.error(f"Failed to create task for SKU {row['sku']} in country Netherland. Response: {task_data}")
 
             else:
                 print(
@@ -385,6 +386,41 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                         'Seller SKU': row['sku'],
                         'Sku description': row['Sku description']
                     })
+        # Create a DataFrame for the Excel file
+        df_skus = pd.DataFrame(all_skus_data, columns=['SKU to be F1', 'New F1 SKU', 'New F1 EAN', 'New F1 Brand'])
+
+        # Save the DataFrame to an Excel file in memory
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_skus.to_excel(writer, index=False, sheet_name='Sheet1')
+        output.seek(0)
+        st.info(f"CSV file created")
+        projects = ['1205436216136693']
+        tags = ['1205436216136702']
+        payload = {
+            "data": {
+                "projects": projects,
+                "name": "Bol SKU Details CSV Upload",
+                "html_notes": "Please find the attached CSV containing the details of SKUs to be F1'd",
+                "tags": tags  # Use the looked-up tag ID here
+            }
+        }
+        # Create the task on Asana
+        response = requests.post(url, json=payload, headers=headers)
+        task_data = response.json()
+        if 'data' in task_data and 'gid' in task_data['data']:
+            task_gid = task_data['data']['gid']
+
+            # Upload the CSV file as an attachment to the task
+            upload_url = f"https://app.asana.com/api/1.0/tasks/{task_gid}/attachments"
+            files = {'file': (
+            'bol_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+            attach_response = requests.post(upload_url, headers=headers, files=files)
+
+            if attach_response.status_code == 200:
+                st.success(f"Excel file successfully attached to task {task_gid}.")
+            else:
+                st.error(f"Failed to upload the Excel file. Response: {attach_response.json()}")
 
     if new_eans_needed:
         # Create the main task
@@ -427,7 +463,8 @@ def fetch_existing_asana_tasks(project_id, headers):
 unique_seller_skus = set()
 # Initialize an empty list to store tasks with missing EANs
 new_eans_needed = []
-
+# Prepare the list to store SKU details for CSV
+all_skus_data = []
 def main():
     st.set_page_config(page_title="BOL File Processor", page_icon="📄")
 
