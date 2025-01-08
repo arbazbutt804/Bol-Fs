@@ -395,6 +395,8 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             df_skus.to_excel(writer, index=False, sheet_name='Sheet1')
         output.seek(0)
         st.info(f"CSV file created")
+        # Display the DataFrame on Streamlit
+        st.write("Generated SKU Details DataFrame:", df_skus)
         projects = ['1205436216136693']
         tags = ['1205436216136702']
         payload = {
@@ -410,12 +412,14 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         task_data = response.json()
         if 'data' in task_data and 'gid' in task_data['data']:
             task_gid = task_data['data']['gid']
+            st.write(f"1 {task_gid}.")
 
             # Upload the CSV file as an attachment to the task
             upload_url = f"https://app.asana.com/api/1.0/tasks/{task_gid}/attachments"
             files = {'file': (
             'bol_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
             attach_response = requests.post(upload_url, headers=headers, files=files)
+            st.write(f"2 {attach_response.status_code}.")
 
             if attach_response.status_code == 200:
                 st.success(f"Excel file successfully attached to task {task_gid}.")
