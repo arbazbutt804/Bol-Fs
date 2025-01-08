@@ -3,7 +3,7 @@ import csv
 import logging
 import time
 from io import BytesIO, StringIO
-
+import json
 import pandas as pd
 import requests
 import streamlit as st
@@ -23,6 +23,7 @@ MARKETPLACE_BASE_URL= st.secrets["MARKETPLACE_BASE_URL"]
 BOL_CLIENT_ID = st.secrets["BOL_CLIENT_ID"]
 BOL_CLIENT_SECRET= st.secrets["BOL_CLIENT_SECRET"]
 BOL_TOKEN_URL= st.secrets["BOL_TOKEN_URL"]
+ASANA_TOKEN = st.secrets["ASANA_TOKEN"]
 marketplace_name = "bol"
 
 # Initialize session state for keeping track of file paths
@@ -60,7 +61,7 @@ def update_excel_with_rating(listing_df, access_token):
 
         if valid_ratings:
             min_rating = min(valid_ratings)
-            filtered_data.append([ean, row['sku'], row['id'], min_rating])
+            filtered_data.append([ean, row['sku'], row['id'],row['title'], min_rating])
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         # Delay for rate limiting
@@ -70,7 +71,7 @@ def update_excel_with_rating(listing_df, access_token):
 def write_filtered_ratings(data):
     logging.info(f"Writing filtered ratings to filtered_ratings.csv ...")
     try:
-        df = pd.DataFrame(data, columns=["ean", "sku", "id", "rating"])
+        df = pd.DataFrame(data, columns=["ean", "sku", "id","title", "rating"])
         # Create a BytesIO object to save the Excel file
         output = BytesIO()
         # Write the DataFrame to an Excel file in the BytesIO object
@@ -80,7 +81,6 @@ def write_filtered_ratings(data):
         # Seek to the beginning of the BytesIO object
         output.seek(0)
         logging.info("Filtered ratings written to CSV successfully.")
-        st.info("CSV content written to StringIO:")
         st.session_state.output_file = output
         logging.info("Filtered ratings written to CSV successfully.")
     except Exception as e:
@@ -282,7 +282,152 @@ def get_product_ratings(ean, headers):
     except Exception as e:
         logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
         return None
+def create_asana_tasks_from_excel(send_to_asana=True):
+    print("create_asana_tasks_from_excel")
+    if not send_to_asana:
+        st.info("Task creation in Asana is disabled.")
+        return
 
+    # Asana API setup
+    url = "https://app.asana.com/api/1.0/tasks?opt_fields="
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {ASANA_TOKEN}"
+    }
+
+    # Load the updated F1s Excel file
+    input_file = st.session_state.output_file
+    for sheet_name in pd.ExcelFile(input_file).sheet_names:
+        df = pd.read_excel(input_file, sheet_name=sheet_name)
+
+        # Check if 'EAN' column exists in the DataFrame
+        if 'ean' not in df.columns:
+            print("The 'EAN' column is missing in the Excel sheet.")
+            continue  # Skip processing this sheet if 'EAN' is missing
+
+        # Fetch existing tasks for the current project
+        project_id = '1205436216136693'
+        existing_task_names = fetch_existing_asana_tasks(project_id, headers)
+
+        for idx, row in df.iterrows():
+            ean_value = row['ean']
+
+            # Remove any leading apostrophes if the EAN is a string
+            if isinstance(ean_value, str):
+                ean_value = ean_value.lstrip("'")
+            # Convert float EAN values to integer and then to string, but only if it's not NaN
+            elif isinstance(ean_value, float) and not pd.isna(ean_value):
+                ean_value = str(int(ean_value))
+
+            if pd.notna(ean_value) and isinstance(ean_value, str):
+                if isinstance(ean_value, int):
+                    ean_value = str(ean_value)
+
+                # Value is valid, proceed with task creation
+                task_name = f"F1 for {row['sku']} - {row['title']}"
+
+                if task_name in existing_task_names:
+                    logging.warning(
+                        f"Task already exists for SKU {row['sku']} in country Netherland, skipping Asana task creation.")
+                    continue
+                sku_to_f1 = row['sku']
+                new_f1_sku = row['F1 to Use']
+                new_f1_ean = ean_value.replace("'", "")  # Remove single quotes
+                new_f1_brand = row['GS1 Brand']
+                projects = ['1205436216136693']
+
+                notes_content = (f"<body><b>SKU to be F1'd:</b> {sku_to_f1}\n"
+                                 f"<b>New F1 SKU:</b> {new_f1_sku}\n"
+                                 f"<b>New F1 EAN:</b> {new_f1_ean}\n"
+                                 f"<b>New F1 Brand:</b> {new_f1_brand}\n"
+                                 "\n"
+                                 "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
+
+                # Look up the tag ID based on the sheet name
+                tags = ['1205436216136702']
+
+                payload = {
+                    "data": {
+                        "projects": projects,
+                        "name": task_name,
+                        "html_notes": notes_content,
+                        "tags": tags  # Use the looked-up tag ID here
+                    }
+                }
+
+                response = requests.post(url, json=payload, headers=headers)
+                print(f"Sending payload: {payload}")
+                task_data = response.json()
+
+                # Check if task creation was successful and move it to the appropriate section
+                if 'data' in task_data and 'gid' in task_data['data']:
+                    task_gid = task_data['data']['gid']
+                    section_id = ['1205436216136695']
+                    move_url = f"https://app.asana.com/api/1.0/sections/{section_id}/addTask"
+                    move_payload = {
+                        "data": {
+                            "task": task_gid
+                        }
+                    }
+                    move_response = requests.post(move_url, json=move_payload, headers=headers)
+                    print(f"Moved task {task_gid} to section {section_id}. Response: {move_response.json()}")
+                else:
+                    logging.error(f"Failed to create task for SKU {row['sku']} in country Netherland. Response: {task_data}")
+
+            else:
+                print(
+                    f"EAN '{ean_value}' (data type: {type(ean_value)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
+                if row['sku'] not in unique_seller_skus:
+                    unique_seller_skus.add(row['sku'])  # Add to the unique set
+
+                    # Add to the list of tasks needing new EANs
+                    new_eans_needed.append({
+                        'Seller SKU': row['sku'],
+                        'Sku description': row['title']
+                    })
+
+    if new_eans_needed:
+        # Create the main task
+        main_task_payload = {
+            "data": {
+                "name": "NEW F1's Needed",
+                "assignee": "1202218809921567",
+                "html_notes": "<body><b>Please can the following new F1's be created and added to the F1 Log <a href=\"https://docs.google.com/spreadsheets/d/1JesoDfHewylxsso0luFrY6KDclv3kvNjugnvMjRH2ak/edit#gid=0\" target=\"_blank\">here</a></b></body>",
+                "followers": ["greg.stephenson@monstergroupuk.co.uk, 1202218809921567"],
+                "workspace": "17406368418784"
+            }
+        }
+        main_task_response = requests.post(url, json=main_task_payload, headers=headers)
+        main_task_data = main_task_response.json()
+        main_task_gid = main_task_data['data']['gid']
+
+        # Create subtasks
+        subtask_url = f"https://app.asana.com/api/1.0/tasks/{main_task_gid}/subtasks"
+        for task in new_eans_needed:
+            subtask_name = f"{task['Seller SKU']} - {task['Sku description']}"
+            subtask_payload = {
+                "data": {
+                    "name": subtask_name
+                }
+            }
+            subtask_response = requests.post(subtask_url, json=subtask_payload, headers=headers)
+            print(f"Added subtask: {subtask_name}. Response: {subtask_response.json()}")
+
+
+def fetch_existing_asana_tasks(project_id, headers):
+    print("fetch_existing_asana_tasks")
+    url = f"https://app.asana.com/api/1.0/tasks?project={project_id}&opt_fields=name"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return [task['name'] for task in json.loads(response.text)['data']]
+    else:
+        return []
+
+# Initialize an empty set to store unique seller-skus
+unique_seller_skus = set()
+# Initialize an empty list to store tasks with missing EANs
+new_eans_needed = []
 
 def main():
     st.set_page_config(page_title="BOL File Processor", page_icon="📄")
@@ -333,7 +478,7 @@ def main():
         with col3:
             if st.button("Create Asana Tasks"):
                 st.info("Starting Asana task creation...")
-                #create_asana_tasks_from_excel(send_to_asana=False)  # Call your function here
+                create_asana_tasks_from_excel(send_to_asana=False)  # Call your function here
                 st.success("Asana tasks created successfully!")
 
 if __name__ == "__main__":
