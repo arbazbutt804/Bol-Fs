@@ -395,23 +395,30 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             df_skus.to_excel(writer, index=False, sheet_name='Sheet1')
         output.seek(0)
         st.info(f"CSV file created")
-        # Display the DataFrame on Streamlit
-        st.write("Generated SKU Details DataFrame:", df_skus)
         projects = ['1205436216136693']
         tags = ['1205436216136702']
+        notes_content = (f"<body><b>SKU to be F1'd:</b> {tags}\n"
+                                 f"<b>New F1 SKU:</b> {tags}\n"
+                                 f"<b>New F1 EAN:</b> {tags}\n"
+                                 f"<b>New F1 Brand:</b> {tags}\n"
+                                 "\n"
+                                 "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
         payload = {
             "data": {
                 "projects": projects,
                 "name": "Bol SKU Details CSV Upload",
-                "html_notes": "Please find the attached CSV containing the details of SKUs to be F1'd",
+                "html_notes": notes_content,
                 "tags": tags  # Use the looked-up tag ID here
             }
         }
         # Create the task on Asana
+        st.info(f"check 1 ")
         response = requests.post(url, json=payload, headers=headers)
         task_data = response.json()
+        st.info(f"task data {task_data}")
         if 'data' in task_data and 'gid' in task_data['data']:
             task_gid = task_data['data']['gid']
+            st.info(f"check 2 ")
             st.write(f"1 {task_gid}.")
 
             # Upload the CSV file as an attachment to the task
