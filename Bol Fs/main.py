@@ -3,7 +3,7 @@ import csv
 import logging
 import time
 from io import BytesIO, StringIO
-
+import json
 import pandas as pd
 import requests
 import streamlit as st
@@ -23,19 +23,21 @@ MARKETPLACE_BASE_URL= st.secrets["MARKETPLACE_BASE_URL"]
 BOL_CLIENT_ID = st.secrets["BOL_CLIENT_ID"]
 BOL_CLIENT_SECRET= st.secrets["BOL_CLIENT_SECRET"]
 BOL_TOKEN_URL= st.secrets["BOL_TOKEN_URL"]
+ASANA_TOKEN = st.secrets["ASANA_TOKEN"]
 marketplace_name = "bol"
 
 # Initialize session state for keeping track of file paths
 if "output_file" not in st.session_state:
     st.session_state.output_file = None
 
-def analyze_listing(uploaded_file):
+def analyze_listing():
     try:
-        df = pd.read_csv(uploaded_file)
-        logging.info(f"Successfully read CSV file: {uploaded_file}, {len(df)} rows found.")
+        csv_file = 'https://files.channable.com/n8wWOX9ZCS6umlM-vKHUIw==.csv'
+        df = pd.read_csv(csv_file, delimiter='\t')
+        logging.info(f"Successfully read CSV file {len(df)} rows found.")
         return df
     except Exception as e:
-        st.error(f"Error reading CSV file {uploaded_file}: {e}")
+        st.error(f"Error reading CSV file  {e}")
         raise
     except Exception as e:
         logging.error(f"An unexpected error occurred during the Processing of Listing File: {e}")
@@ -43,13 +45,17 @@ def analyze_listing(uploaded_file):
 
 def update_excel_with_rating(listing_df, access_token):
     filtered_data = []
+    count =0
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/vnd.retailer.v9+json'
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
+        #if count >= 500:  # Stop after processing 100 products (for testing )
+            #break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
+        ean = int(ean)
         ratings_response = get_product_ratings(ean, headers)
         ratings = ratings_response.get("ratings", []) if ratings_response else []
 
@@ -61,26 +67,23 @@ def update_excel_with_rating(listing_df, access_token):
             filtered_data.append([ean, row['sku'], row['id'], min_rating])
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
-        # Delay for rate limiting
-        time.sleep(1.2)
+        time.sleep(0.9)
     return filtered_data
 
 def write_filtered_ratings(data):
     logging.info(f"Writing filtered ratings to filtered_ratings.csv ...")
     try:
-        # Create a BytesIO object to store the CSV data
-        output = StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["ean", "sku", "id", "rating"])
-        for row in data:
-            writer.writerow(row)
-        logging.info("Filtered ratings written to CSV successfully.")
+        df = pd.DataFrame(data, columns=["ean", "sku", "id", "rating"])
+        # Create a BytesIO object to save the Excel file
+        output = BytesIO()
+        # Write the DataFrame to an Excel file in the BytesIO object
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Sheet1')
 
+        # Seek to the beginning of the BytesIO object
         output.seek(0)
-        # Convert the StringIO data to bytes and store it in a BytesIO object
-        output_bytes = BytesIO(output.getvalue().encode('utf-8'))
-        # Store the updated file in session state
-        st.session_state.output_file = output_bytes
+        logging.info("Filtered ratings written to CSV successfully.")
+        st.session_state.output_file = output
         logging.info("Filtered ratings written to CSV successfully.")
     except Exception as e:
         st.error(f"Error writing filtered ratings to CSV: {e}")
@@ -100,7 +103,7 @@ def update_excel_with_sku_description():
         df_csv['Sku code'] = df_csv['Sku code'].astype(str)
 
         # Read the original filtered_ratings.csv into a DataFrame
-        df_excel = pd.read_csv(input_file)
+        df_excel = pd.read_excel(input_file)
         df_excel['sku'] = df_excel['sku'].astype(str)
 
         # Merge based on 'sku' and 'Sku code'
@@ -137,7 +140,9 @@ def update_excel_with_f1_to_use():
 
         # Fetch the CSV file from the URL
         url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRxBqpSTMwezeOji3KXDlrp3855sQHFuYxmKsCIDwILg4iHMEx2BBmp87nwEgI__4g3rM6H65rIp0sF/pub?gid=0&single=true&output=csv"
-        df_csv = pd.read_csv(url)
+        response = requests.get(url)
+        csv_data = StringIO(response.text)
+        df_csv = pd.read_csv(csv_data)
         # Store dataframes temporarily
         df_dict = {}
 
@@ -157,12 +162,12 @@ def update_excel_with_f1_to_use():
                 f1_to_use_values.append(None)
 
         df_excel['F1 to Use'] = f1_to_use_values
+        df_dict['Sheet1'] = df_excel
         # Write the updated data back to a BytesIO object
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            for sheet, df in df_dict.items():
-                logging.info(f"Writing updated data to sheet {sheet}.")
-                df.to_excel(writer, sheet_name=sheet, index=False)
+            logging.info(f"Writing updated data to sheet.")
+            df_excel.to_excel(writer, sheet_name='Sheet1', index=False)
 
         logging.info(f"Successfully updated Excel file with F1 to Use information.")
         output.seek(0)  # Reset the pointer of the BytesIO object
@@ -193,7 +198,6 @@ def update_excel_with_barcodes(uploaded_barcodes):
 
                 for f1 in df_excel['F1 to Use']:
                     found_row = df_barcodes[df_barcodes['SKU'] == f1]
-
                     if not found_row.empty:
                         number_value = str(found_row['Number'].iloc[0]).replace('=', '').replace('"', '')
                         barcode_values.append(number_value)
@@ -250,7 +254,7 @@ def get_access_token():
             message = f"Error fetching access token: {response.status_code} - {response.text}"
             return None
     except Exception as e:
-        message = f"Exception occurred while fetching access token: {str(e)}"
+        st.error(f"Exception occurred while fetching access token: {str(e)}")
         return None
 
 def get_product_ratings(ean, headers):
@@ -279,8 +283,136 @@ def get_product_ratings(ean, headers):
     except Exception as e:
         logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
         return None
+def create_asana_tasks_from_excel(send_to_asana=True):
+    print("create_asana_tasks_from_excel")
+    if not send_to_asana:
+        st.info("Task creation in Asana is disabled.")
+        return
 
+    # Asana API setup
+    url = "https://app.asana.com/api/1.0/tasks?opt_fields="
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {ASANA_TOKEN}"
+    }
 
+    # Load the updated F1s Excel file
+    input_file = st.session_state.output_file
+    for sheet_name in pd.ExcelFile(input_file).sheet_names:
+        df = pd.read_excel(input_file, sheet_name=sheet_name)
+
+        # Check if 'EAN' column exists in the DataFrame
+        if 'ean' not in df.columns:
+            print("The 'EAN' column is missing in the Excel sheet.")
+            continue  # Skip processing this sheet if 'EAN' is missing
+
+        for idx, row in df.iterrows():
+            new_f1_barcode = row['Barcode']
+
+            # Remove any leading apostrophes if the EAN is a string
+            if isinstance(new_f1_barcode, str):
+                new_f1_barcode = new_f1_barcode.lstrip("'")
+            # Convert float EAN values to integer and then to string, but only if it's not NaN
+            elif isinstance(new_f1_barcode, float) and not pd.isna(new_f1_barcode):
+                new_f1_barcode = str(int(new_f1_barcode))
+
+            if pd.notna(new_f1_barcode) and (isinstance(new_f1_barcode, str) or isinstance(new_f1_barcode, int)):
+                new_f1_barcode = str(new_f1_barcode)
+
+                # Value is valid, proceed with task creation
+                task_name = f"F1 for {row['sku']} - {row['Sku description']}"
+                sku_to_f1 = row['sku']
+                new_f1_sku = row['F1 to Use']
+                existing_f1_ean = row['ean']
+                new_f1_brand = row['GS1 Brand']
+                all_skus_data.append([task_name,sku_to_f1, new_f1_sku, existing_f1_ean,new_f1_barcode, new_f1_brand])
+            else:
+                if not pd.notna(row['F1 to Use']):
+                    print(
+                        f"EAN '{new_f1_barcode}' (data type: {type(new_f1_barcode)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
+                    if row['sku'] not in unique_seller_skus:
+                        unique_seller_skus.add(row['sku'])  # Add to the unique set
+
+                        # Add to the list of tasks needing new EANs
+                        new_eans_needed.append({
+                            'Seller SKU': row['sku'],
+                            'Sku description': row['Sku description']
+                        })
+        # Create a DataFrame for the Excel file
+        df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'Existing F1 EAN','New F1 Barcode', 'New F1 Brand'])
+
+        # Save the DataFrame to an Excel file in memory
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_skus.to_excel(writer, index=False, sheet_name='Sheet1')
+        output.seek(0)
+        projects = ['1205436216136693']
+        tags = ['1205436216136702']
+        notes_content = (f"<body><b>File attached in this task </b> \n"
+                                 "\n"
+                                 "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
+        payload = {
+            "data": {
+                "projects": projects,
+                "name": "BOL Task",
+                "html_notes": notes_content,
+                "tags": tags  # Use the looked-up tag ID here
+            }
+        }
+        # Create the task on Asana
+        response = requests.post(url, json=payload, headers=headers)
+        task_data = response.json()
+        if 'data' in task_data and 'gid' in task_data['data']:
+            task_gid = task_data['data']['gid']
+            # Upload the CSV file as an attachment to the task
+            # Adjust headers for file upload
+            headers = {
+                "authorization": f"Bearer {ASANA_TOKEN}"
+            }
+            upload_url = f"https://app.asana.com/api/1.0/tasks/{task_gid}/attachments"
+            files = {'file': (
+            'bol_F1_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+            attach_response = requests.post(upload_url, headers=headers, files=files)
+
+            if attach_response.status_code == 200:
+                logging.info(f"Excel file successfully attached to task {task_gid}.")
+            else:
+                logging.error(f"Failed to upload the Excel file. Response: {attach_response.json()}")
+
+    if new_eans_needed:
+        # Create the main task
+        main_task_payload = {
+            "data": {
+                "name": "NEW F1's Needed",
+                "assignee": "1208716819375873",
+                "html_notes": "<body><b>Please can the following new F1's be created and added to the F1 Log <a href=\"https://docs.google.com/spreadsheets/d/1JesoDfHewylxsso0luFrY6KDclv3kvNjugnvMjRH2ak/edit#gid=0\" target=\"_blank\">here</a></b></body>",
+                "followers": ["greg.stephenson@monstergroupuk.co.uk, 1208716819375873,1208388789142367"],
+                "workspace": "17406368418784"
+            }
+        }
+        main_task_response = requests.post(url, json=main_task_payload, headers=headers)
+        main_task_data = main_task_response.json()
+        main_task_gid = main_task_data['data']['gid']
+
+        # Create subtasks
+        subtask_url = f"https://app.asana.com/api/1.0/tasks/{main_task_gid}/subtasks"
+        for task in new_eans_needed:
+            subtask_name = f"{task['Seller SKU']} - {task['Sku description']}"
+            subtask_payload = {
+                "data": {
+                    "name": subtask_name
+                }
+            }
+            subtask_response = requests.post(subtask_url, json=subtask_payload, headers=headers)
+            print(f"Added subtask: {subtask_name}. Response: {subtask_response.json()}")
+
+# Initialize an empty set to store unique seller-skus
+unique_seller_skus = set()
+# Initialize an empty list to store tasks with missing EANs
+new_eans_needed = []
+# Prepare the list to store SKU details for CSV
+all_skus_data = []
 def main():
     st.set_page_config(page_title="BOL File Processor", page_icon="📄")
 
@@ -301,15 +433,13 @@ def main():
         .stButton button:hover, .stDownloadButton button:hover {background-color: #45a049;}
         .stFileUploader {border: 2px dashed #4CAF50 !important; border-radius: 10px;}
         </style>""", unsafe_allow_html=True)
-    # File uploader widget for the user to upload their IDQ file
-    uploaded_file = st.file_uploader("Upload Listing CSV file", type="csv")
     # File uploader widget for the user to upload their barcodes file
     uploaded_barcodes = st.file_uploader("Upload Barcode CSV file", type="csv")
 
-    if uploaded_file is not None and uploaded_barcodes is not None and st.session_state.output_file is None:
+    if uploaded_barcodes is not None and st.session_state.output_file is None:
         # When a file is uploaded, run the analysis
         with st.spinner("Processing your files. This may take a few moments..."):
-            listing_df = analyze_listing(uploaded_file)
+            listing_df = analyze_listing()
             if listing_df is not None:
                 access_token = get_access_token()
                 if access_token:
@@ -332,7 +462,7 @@ def main():
         with col3:
             if st.button("Create Asana Tasks"):
                 st.info("Starting Asana task creation...")
-                #create_asana_tasks_from_excel(send_to_asana=False)  # Call your function here
+                create_asana_tasks_from_excel(send_to_asana=True)  # Call your function here
                 st.success("Asana tasks created successfully!")
 
 if __name__ == "__main__":
