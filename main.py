@@ -65,7 +65,7 @@ def update_excel_with_rating(listing_df, access_token):
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         # Delay for rate limiting
-        time.sleep(0.8)
+        time.sleep(0.9)
     return filtered_data
 
 def write_filtered_ratings(data):
@@ -321,12 +321,11 @@ def create_asana_tasks_from_excel(send_to_asana=True):
 
                 # Value is valid, proceed with task creation
                 task_name = f"F1 for {row['sku']} - {row['Sku description']}"
-
                 sku_to_f1 = row['sku']
                 new_f1_sku = row['F1 to Use']
                 new_f1_ean = ean_value.replace("'", "")  # Remove single quotes
                 new_f1_brand = row['GS1 Brand']
-                all_skus_data.append([sku_to_f1, new_f1_sku, new_f1_ean, new_f1_brand])
+                all_skus_data.append([task_name,sku_to_f1, new_f1_sku, new_f1_ean, new_f1_brand])
             else:
                 print(
                     f"EAN '{ean_value}' (data type: {type(ean_value)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
@@ -339,7 +338,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                         'Sku description': row['Sku description']
                     })
         # Create a DataFrame for the Excel file
-        df_skus = pd.DataFrame(all_skus_data, columns=['SKU to be F1', 'New F1 SKU', 'New F1 EAN', 'New F1 Brand'])
+        df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'New F1 EAN', 'New F1 Brand'])
 
         # Save the DataFrame to an Excel file in memory
         output = BytesIO()
