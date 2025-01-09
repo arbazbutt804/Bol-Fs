@@ -52,7 +52,7 @@ def update_excel_with_rating(listing_df, access_token):
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
-        if count >= 300:  # Stop after processing 100 products
+        if count >= 500:  # Stop after processing 100 products
             break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
@@ -330,16 +330,17 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                 new_f1_brand = row['GS1 Brand']
                 all_skus_data.append([task_name,sku_to_f1, new_f1_sku, existing_f1_ean,new_f1_barcode, new_f1_brand])
             else:
-                print(
-                    f"EAN '{new_f1_barcode}' (data type: {type(new_f1_barcode)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
-                if row['sku'] not in unique_seller_skus:
-                    unique_seller_skus.add(row['sku'])  # Add to the unique set
+                if not pd.notna(row['F1 to Use']):
+                    print(
+                        f"EAN '{new_f1_barcode}' (data type: {type(new_f1_barcode)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
+                    if row['sku'] not in unique_seller_skus:
+                        unique_seller_skus.add(row['sku'])  # Add to the unique set
 
-                    # Add to the list of tasks needing new EANs
-                    new_eans_needed.append({
-                        'Seller SKU': row['sku'],
-                        'Sku description': row['Sku description']
-                    })
+                        # Add to the list of tasks needing new EANs
+                        new_eans_needed.append({
+                            'Seller SKU': row['sku'],
+                            'Sku description': row['Sku description']
+                        })
         # Create a DataFrame for the Excel file
         df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'Existing F1 EAN','New F1 Barcode', 'New F1 Brand'])
 
