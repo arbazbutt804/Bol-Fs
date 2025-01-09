@@ -196,7 +196,6 @@ def update_excel_with_barcodes(uploaded_barcodes):
 
                 for f1 in df_excel['F1 to Use']:
                     found_row = df_barcodes[df_barcodes['SKU'] == f1]
-
                     if not found_row.empty:
                         number_value = str(found_row['Number'].iloc[0]).replace('=', '').replace('"', '')
                         barcode_values.append(number_value)
@@ -226,6 +225,13 @@ def update_excel_with_barcodes(uploaded_barcodes):
         # Store the output file path in session state so it can be downloaded later
         output.seek(0)  # Reset the pointer of the BytesIO object
         st.session_state.output_file = output
+        # Download the updated Excel file in Streamlit
+        st.download_button(
+            label="Download updated Excel file",
+            data=output,
+            file_name="updated_barcodes.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     except Exception as e:
         logging.error(f"An error occurred while updating the Excel file with Barcodes: {e}")
