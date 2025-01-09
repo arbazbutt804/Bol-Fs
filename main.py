@@ -306,10 +306,6 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             print("The 'EAN' column is missing in the Excel sheet.")
             continue  # Skip processing this sheet if 'EAN' is missing
 
-        # Fetch existing tasks for the current project
-        project_id = '1205436216136693'
-        existing_task_names = fetch_existing_asana_tasks(project_id, headers)
-
         for idx, row in df.iterrows():
             ean_value = row['ean']
 
@@ -326,55 +322,11 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                 # Value is valid, proceed with task creation
                 task_name = f"F1 for {row['sku']} - {row['Sku description']}"
 
-                if task_name in existing_task_names:
-                    logging.warning(
-                        f"Task already exists for SKU {row['sku']} in country Netherland, skipping Asana task creation.")
-                    continue
                 sku_to_f1 = row['sku']
                 new_f1_sku = row['F1 to Use']
                 new_f1_ean = ean_value.replace("'", "")  # Remove single quotes
                 new_f1_brand = row['GS1 Brand']
-                projects = ['1205436216136693']
                 all_skus_data.append([sku_to_f1, new_f1_sku, new_f1_ean, new_f1_brand])
-
-                # notes_content = (f"<body><b>SKU to be F1'd:</b> {sku_to_f1}\n"
-                #                  f"<b>New F1 SKU:</b> {new_f1_sku}\n"
-                #                  f"<b>New F1 EAN:</b> {new_f1_ean}\n"
-                #                  f"<b>New F1 Brand:</b> {new_f1_brand}\n"
-                #                  "\n"
-                #                  "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
-
-                # # Look up the tag ID based on the sheet name
-                # tags = ['1205436216136702']
-                #
-                # payload = {
-                #     "data": {
-                #         "projects": projects,
-                #         "name": task_name,
-                #         "html_notes": notes_content,
-                #         "tags": tags  # Use the looked-up tag ID here
-                #     }
-                # }
-                #
-                # response = requests.post(url, json=payload, headers=headers)
-                # print(f"Sending payload: {payload}")
-                # task_data = response.json()
-
-                # Check if task creation was successful and move it to the appropriate section
-                # if 'data' in task_data and 'gid' in task_data['data']:
-                #     task_gid = task_data['data']['gid']
-                #     section_id = ['1205436216136695']
-                #     move_url = f"https://app.asana.com/api/1.0/sections/{section_id}/addTask"
-                #     move_payload = {
-                #         "data": {
-                #             "task": task_gid
-                #         }
-                #     }
-                #     move_response = requests.post(move_url, json=move_payload, headers=headers)
-                #     print(f"Moved task {task_gid} to section {section_id}. Response: {move_response.json()}")
-                # else:
-                #     logging.error(f"Failed to create task for SKU {row['sku']} in country Netherland. Response: {task_data}")
-
             else:
                 print(
                     f"EAN '{ean_value}' (data type: {type(ean_value)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
@@ -394,13 +346,9 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_skus.to_excel(writer, index=False, sheet_name='Sheet1')
         output.seek(0)
-        st.info(f"CSV file created")
         projects = ['1205436216136693']
         tags = ['1205436216136702']
-        notes_content = (f"<body><b>SKU to be F1'd:</b> {tags}\n"
-                                 f"<b>New F1 SKU:</b> {tags}\n"
-                                 f"<b>New F1 EAN:</b> {tags}\n"
-                                 f"<b>New F1 Brand:</b> {tags}\n"
+        notes_content = (f"<body><b>File attached in this task </b> \n"
                                  "\n"
                                  "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
         payload = {
@@ -412,21 +360,20 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             }
         }
         # Create the task on Asana
-        st.info(f"check 1 ")
         response = requests.post(url, json=payload, headers=headers)
         task_data = response.json()
-        st.info(f"task data {task_data}")
         if 'data' in task_data and 'gid' in task_data['data']:
             task_gid = task_data['data']['gid']
-            st.info(f"check 2 ")
             st.write(f"1 {task_gid}.")
 
             # Upload the CSV file as an attachment to the task
             # Adjust headers for file upload
-            headers.pop("content-type", None)
+            headers = {
+                "authorization": f"Bearer {ASANA_TOKEN}"
+            }
             upload_url = f"https://app.asana.com/api/1.0/tasks/{task_gid}/attachments"
             files = {'file': (
-            'bol_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+            'bol_F1_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
             attach_response = requests.post(upload_url, headers=headers, files=files)
             st.write(f"2 {attach_response.status_code}.")
 
@@ -461,16 +408,6 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             }
             subtask_response = requests.post(subtask_url, json=subtask_payload, headers=headers)
             print(f"Added subtask: {subtask_name}. Response: {subtask_response.json()}")
-
-
-def fetch_existing_asana_tasks(project_id, headers):
-    print("fetch_existing_asana_tasks")
-    url = f"https://app.asana.com/api/1.0/tasks?project={project_id}&opt_fields=name"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return [task['name'] for task in json.loads(response.text)['data']]
-    else:
-        return []
 
 # Initialize an empty set to store unique seller-skus
 unique_seller_skus = set()
