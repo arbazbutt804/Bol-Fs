@@ -342,7 +342,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                         'Sku description': row['Sku description']
                     })
         # Create a DataFrame for the Excel file
-        df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'Existing F1 EAN','New F1 Barcode' 'New F1 Brand'])
+        df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'Existing F1 EAN','New F1 Barcode', 'New F1 Brand'])
 
         # Save the DataFrame to an Excel file in memory
         output = BytesIO()
