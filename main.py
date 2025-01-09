@@ -52,7 +52,7 @@ def update_excel_with_rating(listing_df, access_token):
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
-        if count >= 201:  # Stop after processing 100 products
+        if count >= 600:  # Stop after processing 100 products
             break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
@@ -229,13 +229,6 @@ def update_excel_with_barcodes(uploaded_barcodes):
         # Store the output file path in session state so it can be downloaded later
         output.seek(0)  # Reset the pointer of the BytesIO object
         st.session_state.output_file = output
-        # Download the updated Excel file in Streamlit
-        st.download_button(
-            label="Download updated Excel file",
-            data=output,
-            file_name="updated_barcodes.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
 
     except Exception as e:
         logging.error(f"An error occurred while updating the Excel file with Barcodes: {e}")
@@ -333,9 +326,10 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                 task_name = f"F1 for {row['sku']} - {row['Sku description']}"
                 sku_to_f1 = row['sku']
                 new_f1_sku = row['F1 to Use']
-                new_f1_ean = ean_value.replace("'", "")  # Remove single quotes
+                existing_f1_ean = ean_value.replace("'", "")  # Remove single quotes
+                new_f1_barcode = row['Barcode']
                 new_f1_brand = row['GS1 Brand']
-                all_skus_data.append([task_name,sku_to_f1, new_f1_sku, new_f1_ean, new_f1_brand])
+                all_skus_data.append([task_name,sku_to_f1, new_f1_sku, existing_f1_ean,new_f1_barcode, new_f1_brand])
             else:
                 print(
                     f"EAN '{ean_value}' (data type: {type(ean_value)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
@@ -348,7 +342,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
                         'Sku description': row['Sku description']
                     })
         # Create a DataFrame for the Excel file
-        df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'New F1 EAN', 'New F1 Brand'])
+        df_skus = pd.DataFrame(all_skus_data, columns=['Task','SKU to be F1', 'New F1 SKU', 'Existing F1 EAN','New F1 Barcode' 'New F1 Brand'])
 
         # Save the DataFrame to an Excel file in memory
         output = BytesIO()
