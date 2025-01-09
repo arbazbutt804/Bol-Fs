@@ -52,7 +52,7 @@ def update_excel_with_rating(listing_df, access_token):
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
-        if count >= 600:  # Stop after processing 100 products
+        if count >= 300:  # Stop after processing 100 products
             break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
@@ -310,29 +310,28 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             continue  # Skip processing this sheet if 'EAN' is missing
 
         for idx, row in df.iterrows():
-            ean_value = row['ean']
+            new_f1_barcode = row['Barcode']
 
             # Remove any leading apostrophes if the EAN is a string
-            if isinstance(ean_value, str):
-                ean_value = ean_value.lstrip("'")
+            if isinstance(new_f1_barcode, str):
+                new_f1_barcode = new_f1_barcode.lstrip("'")
             # Convert float EAN values to integer and then to string, but only if it's not NaN
-            elif isinstance(ean_value, float) and not pd.isna(ean_value):
-                ean_value = str(int(ean_value))
+            elif isinstance(new_f1_barcode, float) and not pd.isna(new_f1_barcode):
+                new_f1_barcode = str(int(new_f1_barcode))
 
-            if pd.notna(ean_value) and (isinstance(ean_value, str) or isinstance(ean_value, int)):
-                ean_value = str(ean_value)
+            if pd.notna(new_f1_barcode) and (isinstance(new_f1_barcode, str) or isinstance(new_f1_barcode, int)):
+                new_f1_barcode = str(new_f1_barcode)
 
                 # Value is valid, proceed with task creation
                 task_name = f"F1 for {row['sku']} - {row['Sku description']}"
                 sku_to_f1 = row['sku']
                 new_f1_sku = row['F1 to Use']
-                existing_f1_ean = ean_value.replace("'", "")  # Remove single quotes
-                new_f1_barcode = row['Barcode']
+                existing_f1_ean = row['ean']
                 new_f1_brand = row['GS1 Brand']
                 all_skus_data.append([task_name,sku_to_f1, new_f1_sku, existing_f1_ean,new_f1_barcode, new_f1_brand])
             else:
                 print(
-                    f"EAN '{ean_value}' (data type: {type(ean_value)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
+                    f"EAN '{new_f1_barcode}' (data type: {type(new_f1_barcode)}) is not a valid value for SKU {row['sku']} in country Netherland. Skipping Asana task creation.")
                 if row['sku'] not in unique_seller_skus:
                     unique_seller_skus.add(row['sku'])  # Add to the unique set
 
