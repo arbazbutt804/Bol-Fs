@@ -353,7 +353,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         payload = {
             "data": {
                 "projects": projects,
-                "name": "Bol SKU Details CSV Upload",
+                "name": "BOL Task",
                 "html_notes": notes_content,
                 "tags": tags  # Use the looked-up tag ID here
             }
@@ -363,8 +363,6 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         task_data = response.json()
         if 'data' in task_data and 'gid' in task_data['data']:
             task_gid = task_data['data']['gid']
-            st.write(f"1 {task_gid}.")
-
             # Upload the CSV file as an attachment to the task
             # Adjust headers for file upload
             headers = {
@@ -374,12 +372,11 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             files = {'file': (
             'bol_F1_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
             attach_response = requests.post(upload_url, headers=headers, files=files)
-            st.write(f"2 {attach_response.status_code}.")
 
             if attach_response.status_code == 200:
-                st.success(f"Excel file successfully attached to task {task_gid}.")
+                logging.info(f"Excel file successfully attached to task {task_gid}.")
             else:
-                st.error(f"Failed to upload the Excel file. Response: {attach_response.json()}")
+                logging.error(f"Failed to upload the Excel file. Response: {attach_response.json()}")
 
     if new_eans_needed:
         # Create the main task
