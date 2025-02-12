@@ -355,7 +355,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         payload = {
             "data": {
                 "projects": projects,
-                "name": "BOL Task",
+                "name": "BOL F1s to be completed",
                 "html_notes": notes_content,
                 "tags": tags  # Use the looked-up tag ID here
             }
