@@ -348,7 +348,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             df_skus.to_excel(writer, index=False, sheet_name='Sheet1')
         output.seek(0)
         projects = ['1205436216136693']
-        tags = ['1205436216136702']
+        tags = ['1209378911118666']
         notes_content = (f"<body><b>File attached in this task </b> \n"
                                  "\n"
                                  "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
@@ -365,6 +365,11 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         task_data = response.json()
         if 'data' in task_data and 'gid' in task_data['data']:
             task_gid = task_data['data']['gid']
+            # Move task to BOL section
+            section_gid = "1209105851510374"
+            move_url = f"https://app.asana.com/api/1.0/sections/{section_gid}/addTask"
+            move_payload = {"data": {"task": task_gid}}
+            requests.post(move_url, json=move_payload, headers=headers)
             # Upload the CSV file as an attachment to the task
             # Adjust headers for file upload
             headers = {
