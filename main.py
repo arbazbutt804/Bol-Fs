@@ -125,6 +125,14 @@ def update_excel_with_sku_description():
         st.session_state.output_file = output
         logging.info("Successfully updated filtered_ratings file with SKU description information. Saved as filtered_ratings - Desc Added.xlsx")
 
+        # Add a download button for the updated Excel file
+        st.download_button(
+            label="Download Updated Excel File",
+            data=output,
+            file_name="filtered_ratings_Desc_Added.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
     except Exception as e:
         logging.error(f"An error occurred while updating the Excel file with SKU description: {e}")
         st.error("An error occurred while updating the Excel file with SKU description")
@@ -172,6 +180,14 @@ def update_excel_with_f1_to_use():
         logging.info(f"Successfully updated Excel file with F1 to Use information.")
         output.seek(0)  # Reset the pointer of the BytesIO object
         st.session_state.output_file = output
+
+        # Add a download button for the updated Excel file
+        st.download_button(
+            label="Download Updated f1 to use",
+            data=output,
+            file_name="f1_to_use.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
     except Exception as e:
         st.error(f"An error occurred while updating the Excel file with F1 to Use: {e}")
 
@@ -227,6 +243,13 @@ def update_excel_with_barcodes(uploaded_barcodes):
         # Store the output file path in session state so it can be downloaded later
         output.seek(0)  # Reset the pointer of the BytesIO object
         st.session_state.output_file = output
+        # Add a download button for the updated Excel file
+        st.download_button(
+            label="barcode",
+            data=output,
+            file_name="barcode_file.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     except Exception as e:
         logging.error(f"An error occurred while updating the Excel file with Barcodes: {e}")
