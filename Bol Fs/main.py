@@ -110,8 +110,16 @@ def update_excel_with_sku_description():
         merged_df = pd.merge(df_excel, df_csv[['Sku code', 'Sku description']], left_on='sku',
                              right_on='Sku code', how='left')
 
-        # Drop the 'Sku code' column as it's redundant
-        merged_df.drop(columns=['Sku code'], inplace=True)
+        # Extract numeric-only SKU values for fallback matching
+        df_csv['Numeric Sku'] = df_csv['Sku code'].str.extract(r'(\d+)')  # Extract only numbers
+        sku_desc_dict = df_csv.dropna(subset=['Numeric Sku']).set_index('Numeric Sku')['Sku description'].to_dict()
+
+        # Fill missing descriptions by checking numeric SKU
+        merged_df['Numeric Sku'] = merged_df['sku'].str.extract(r'(\d+)')
+        merged_df['Sku description'].fillna(merged_df['Numeric Sku'].map(sku_desc_dict), inplace=True)
+
+        # Drop redundant columns
+        merged_df.drop(columns=['Sku code', 'Numeric Sku'], inplace=True, errors='ignore')
 
         # Save the merged DataFrame as an Excel file
         # Create a BytesIO object to store the CSV data
