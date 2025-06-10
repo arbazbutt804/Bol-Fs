@@ -485,7 +485,7 @@ def main():
                         update_excel_with_sku_description()
                         time.sleep(5)
                         update_excel_with_f1_to_use()
-                        time.sleep(8)
+                        time.sleep(15)
                         update_excel_with_barcodes(uploaded_barcodes)
                         time.sleep(8)
     # Check if the output file exists and show download button
