@@ -191,9 +191,9 @@ def update_excel_with_f1_to_use():
 
         # Add a download button for the updated Excel file
         # st.download_button(
-        #     label="Download Updated Excel File",
+        #     label="Download Updated f1 to use",
         #     data=output,
-        #     file_name="filtered_ratings_Desc_Added.xlsx",
+        #     file_name="f1_to_use.xlsx",
         #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         # )
     except Exception as e:
@@ -206,7 +206,7 @@ def update_excel_with_barcodes(uploaded_barcodes):
         print("Updating filtered_ratings_with_desc_and_F1_to_use.xlsx with Barcodes.")
 
         input_file = st.session_state.output_file
-        df_barcodes = pd.read_csv(uploaded_barcodes, header=3)
+        df_barcodes = pd.read_csv(uploaded_barcodes)
 
         xls = pd.ExcelFile(input_file)
         sheet_names = xls.sheet_names
@@ -253,9 +253,9 @@ def update_excel_with_barcodes(uploaded_barcodes):
         st.session_state.output_file = output
         # Add a download button for the updated Excel file
         # st.download_button(
-        #     label="Download Updated Excel File",
+        #     label="barcode",
         #     data=output,
-        #     file_name="filtered_ratings_Desc_Added.xlsx",
+        #     file_name="barcode_file.xlsx",
         #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         # )
 
