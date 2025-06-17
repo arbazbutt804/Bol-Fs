@@ -52,7 +52,7 @@ def update_excel_with_rating(listing_df, access_token):
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
-        if count >= 50:  # Stop after processing 100 products (for testing )
+        if count >= 500:  # Stop after processing 100 products (for testing )
             break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
