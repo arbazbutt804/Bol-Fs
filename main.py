@@ -60,7 +60,7 @@ def update_excel_with_rating(listing_df, access_token):
         # If token was refreshed, update headers and token for future requests
         if new_token:
             access_token = new_token
-            headers['Authorization'] = access_token
+            headers['Authorization'] = f'Bearer {access_token}'
         ratings = ratings_response.get("ratings", []) if ratings_response else []
 
         # Filter ratings of 1, 2, or 3 with count > 0
@@ -71,7 +71,7 @@ def update_excel_with_rating(listing_df, access_token):
             filtered_data.append([ean, row['sku'], row['id'], min_rating])
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
-        time.sleep(0.9)
+        time.sleep(1)
     return filtered_data
 
 def write_filtered_ratings(data):
@@ -301,11 +301,17 @@ def get_product_ratings(ean, headers):
         # If response is 401 Unauthorized, reauthorize and retry
         if response.status_code == 401:
             logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
-            headers['Authorization'] = "Bearer " + get_access_token()
+            new_token = get_access_token()
+            headers['Authorization'] = "Bearer " + new_token
             response = requests.get(url, headers=headers)
+            if response.status_code == 401:
+                logging.error(f"Reauthorization failed for EAN {ean}.")
+                return None, None
+            response.raise_for_status()
+            return response.json(), new_token
 
         # If response is 404 Not Found, log and return None
-        if response.status_code == 404:
+        elif response.status_code == 404:
             logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
             return None,None
 
@@ -321,7 +327,7 @@ def get_product_ratings(ean, headers):
 
         response.raise_for_status()
         logging.info(f"Successfully fetched ratings for EAN: {ean}")
-        return response.json(), headers['Authorization']
+        return response.json(), None
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
         return None,None
