@@ -273,15 +273,11 @@ def get_access_token():
     encoded_credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
     headers = {
         "Authorization": f"Basic {encoded_credentials}",
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    data = {
-        "grant_type": "client_credentials"
+        "Accept": "application/json"
     }
     try:
         # Make the request to get access token
-        response = requests.post(BOL_TOKEN_URL, headers=headers,data=data)
+        response = requests.post(BOL_TOKEN_URL, headers=headers)
 
         # Check if request was successful
         if response.status_code == 200:
@@ -305,12 +301,12 @@ def get_product_ratings(ean, headers, max_retries=3):
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             logging.info(f"Successfully fetched ratings for EAN: {ean}")
-            return response.json(), headers['Authorization']
+            return response.json(),headers['Authorization'].replace("Bearer ", "")
         # If response is 401 Unauthorized, reauthorize and retry
         elif response.status_code == 401:
             logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
             new_token = get_access_token()
-            headers['Authorization'] = "Bearer " + new_token
+            headers['Authorization'] = f"Bearer {new_token}"
             retries += 1
             continue
         # If response is 404 Not Found, log and return None
