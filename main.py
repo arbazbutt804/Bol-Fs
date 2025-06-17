@@ -52,8 +52,8 @@ def update_excel_with_rating(listing_df, access_token):
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
-        if count >= 500:  # Stop after processing 100 products (for testing )
-            break
+        # if count >= 500:  # Stop after processing 100 products (for testing )
+        #     break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
         ratings_response, new_token = get_product_ratings(ean, headers)
@@ -297,7 +297,6 @@ def get_product_ratings(ean, headers, max_retries=3):
     logging.info(f"Fetching product ratings for EAN: {ean}")
     url = f"https://api.bol.com/retailer/products/{ean}/ratings"
     retries = 0
-    # try:
     while retries < max_retries:
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
@@ -327,12 +326,6 @@ def get_product_ratings(ean, headers, max_retries=3):
         else:
             logging.error(f"Unexpected error {response.status_code} for EAN {ean}")
             return None, None
-    # except requests.exceptions.HTTPError as http_err:
-    #     logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
-    #     return None,None
-    # except Exception as e:
-    #     logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
-    #     return None,None
 def create_asana_tasks_from_excel(send_to_asana=True):
     print("create_asana_tasks_from_excel")
     if not send_to_asana:
