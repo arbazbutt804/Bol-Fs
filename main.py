@@ -296,39 +296,42 @@ def get_product_ratings(ean, headers, max_retries=3):
     logging.info(f"Fetching product ratings for EAN: {ean}")
     url = f"https://api.bol.com/retailer/products/{ean}/ratings"
     retries = 0
-    try:
-        while retries < max_retries:
-            response = requests.get(url, headers=headers)
-            if response.status_code == 200:
-                logging.info(f"Successfully fetched ratings for EAN: {ean}")
-                return response.json(), headers['Authorization']
-            # If response is 401 Unauthorized, reauthorize and retry
-            elif response.status_code == 401:
-                logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
-                new_token = get_access_token()
-                headers['Authorization'] = "Bearer " + new_token
-                retries += 1
-                continue
-            # If response is 404 Not Found, log and return None
-            elif response.status_code == 404:
-                logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
-                return None,None
+    # try:
+    while retries < max_retries:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            logging.info(f"Successfully fetched ratings for EAN: {ean}")
+            return response.json(), headers['Authorization']
+        # If response is 401 Unauthorized, reauthorize and retry
+        elif response.status_code == 401:
+            logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
+            new_token = get_access_token()
+            headers['Authorization'] = "Bearer " + new_token
+            retries += 1
+            continue
+        # If response is 404 Not Found, log and return None
+        elif response.status_code == 404:
+            logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
+            return None,None
 
-            elif response.status_code == 429:
-                retries += 1
-                wait_time = 30 * retries
-                logging.warning(f"429 Rate Limit hit for EAN {ean}. Retrying in {wait_time} seconds.")
-                time.sleep(wait_time)  # sleep for 60 seconds before retry
-                continue
-            else:
-                logging.error(f"Unexpected error {response.status_code} for EAN {ean}")
-                return None, None
-    except requests.exceptions.HTTPError as http_err:
-        logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
-        return None,None
-    except Exception as e:
-        logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
-        return None,None
+        elif response.status_code == 429:
+            retries += 1
+            wait_time = 30 * retries
+            logging.warning(f"429 Rate Limit hit for EAN {ean}. Retrying in {wait_time} seconds.")
+            time.sleep(wait_time)  # sleep for 60 seconds before retry
+            continue
+        elif response.status_code == 400:
+            logging.error(f"400 Bad Request for EAN {ean}. Response: {response.text}")
+            return None, None
+        else:
+            logging.error(f"Unexpected error {response.status_code} for EAN {ean}")
+            return None, None
+    # except requests.exceptions.HTTPError as http_err:
+    #     logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
+    #     return None,None
+    # except Exception as e:
+    #     logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
+    #     return None,None
 def create_asana_tasks_from_excel(send_to_asana=True):
     print("create_asana_tasks_from_excel")
     if not send_to_asana:
