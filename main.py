@@ -69,7 +69,7 @@ def update_excel_with_rating(listing_df, access_token):
         if valid_ratings:
             min_rating = min(valid_ratings)
             filtered_data.append([ean, row['sku'], row['id'], min_rating])
-            count+=1
+        count+=1
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         time.sleep(1)
