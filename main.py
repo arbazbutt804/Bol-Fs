@@ -292,42 +292,37 @@ def get_access_token():
         st.error(f"Exception occurred while fetching access token: {str(e)}")
         return None
 
-def get_product_ratings(ean, headers):
+def get_product_ratings(ean, headers, max_retries=3):
     logging.info(f"Fetching product ratings for EAN: {ean}")
+    url = f"https://api.bol.com/retailer/products/{ean}/ratings"
+    retries = 0
     try:
-        url = f"https://api.bol.com/retailer/products/{ean}/ratings"
-        response = requests.get(url, headers=headers)
-
-        # If response is 401 Unauthorized, reauthorize and retry
-        if response.status_code == 401:
-            logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
-            new_token = get_access_token()
-            headers['Authorization'] = "Bearer " + new_token
+        while retries < max_retries:
             response = requests.get(url, headers=headers)
-            if response.status_code == 401:
-                logging.error(f"Reauthorization failed for EAN {ean}.")
+            if response.status_code == 200:
+                logging.info(f"Successfully fetched ratings for EAN: {ean}")
+                return response.json(), headers['Authorization']
+            # If response is 401 Unauthorized, reauthorize and retry
+            elif response.status_code == 401:
+                logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
+                new_token = get_access_token()
+                headers['Authorization'] = "Bearer " + new_token
+                retries += 1
+                continue
+            # If response is 404 Not Found, log and return None
+            elif response.status_code == 404:
+                logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
+                return None,None
+
+            elif response.status_code == 429:
+                retries += 1
+                wait_time = 30 * retries
+                logging.warning(f"429 Rate Limit hit for EAN {ean}. Retrying in {wait_time} seconds.")
+                time.sleep(wait_time)  # sleep for 60 seconds before retry
+                continue
+            else:
+                logging.error(f"Unexpected error {response.status_code} for EAN {ean}")
                 return None, None
-            response.raise_for_status()
-            return response.json(), new_token
-
-        # If response is 404 Not Found, log and return None
-        elif response.status_code == 404:
-            logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
-            return None,None
-
-        elif response.status_code == 429:
-            logging.warning(f"429 Rate limit hit for EAN {ean}. Sleeping and retrying...")
-            time.sleep(30)  # sleep for 60 seconds before retry
-            response = requests.get(url, headers=headers)
-            if response.status_code == 429:
-                logging.error(f"Still hitting rate limit for EAN {ean}. Skipping.")
-                return None, None
-            response.raise_for_status()
-            return response.json(), None
-
-        response.raise_for_status()
-        logging.info(f"Successfully fetched ratings for EAN: {ean}")
-        return response.json(), None
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
         return None,None
