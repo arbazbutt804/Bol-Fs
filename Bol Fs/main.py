@@ -56,7 +56,11 @@ def update_excel_with_rating(listing_df, access_token):
             #break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
-        ratings_response = get_product_ratings(ean, headers)
+        ratings_response, new_token = get_product_ratings(ean, headers)
+        # If token was refreshed, update headers and token for future requests
+        if new_token:
+            access_token = new_token
+            headers['Authorization'] = access_token
         ratings = ratings_response.get("ratings", []) if ratings_response else []
 
         # Filter ratings of 1, 2, or 3 with count > 0
@@ -307,7 +311,7 @@ def get_product_ratings(ean, headers):
 
         response.raise_for_status()
         logging.info(f"Successfully fetched ratings for EAN: {ean}")
-        return response.json()
+        return response.json(), headers['Authorization']
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
         return None
