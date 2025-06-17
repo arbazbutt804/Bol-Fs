@@ -307,17 +307,17 @@ def get_product_ratings(ean, headers):
         # If response is 404 Not Found, log and return None
         if response.status_code == 404:
             logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
-            return None
+            return None,None
 
         response.raise_for_status()
         logging.info(f"Successfully fetched ratings for EAN: {ean}")
         return response.json(), headers['Authorization']
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error occurred for EAN {ean}: {http_err}")
-        return None
+        return None,None
     except Exception as e:
         logging.error(f"An error occurred while getting product ratings for EAN {ean}: {e}")
-        return None
+        return None,None
 def create_asana_tasks_from_excel(send_to_asana=True):
     print("create_asana_tasks_from_excel")
     if not send_to_asana:
