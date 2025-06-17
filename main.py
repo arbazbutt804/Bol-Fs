@@ -273,7 +273,11 @@ def get_access_token():
     encoded_credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
     headers = {
         "Authorization": f"Basic {encoded_credentials}",
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "grant_type": "client_credentials"
     }
     try:
         # Make the request to get access token
