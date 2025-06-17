@@ -52,8 +52,8 @@ def update_excel_with_rating(listing_df, access_token):
     }
     logging.info("Starting to update listing file with the ratings.")
     for index, row in listing_df.iterrows():
-        #if count >= 500:  # Stop after processing 100 products (for testing )
-            #break
+        if count >= 500:  # Stop after processing 100 products (for testing )
+            break
         ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
         ean = int(ean)
         ratings_response, new_token = get_product_ratings(ean, headers)
@@ -69,6 +69,7 @@ def update_excel_with_rating(listing_df, access_token):
         if valid_ratings:
             min_rating = min(valid_ratings)
             filtered_data.append([ean, row['sku'], row['id'], min_rating])
+            count+=1
 
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         time.sleep(1)
