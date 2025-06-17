@@ -487,7 +487,7 @@ def main():
                         update_excel_with_f1_to_use()
                         time.sleep(15)
                         update_excel_with_barcodes(uploaded_barcodes)
-                        time.sleep(8)
+                        time.sleep(15)
     # Check if the output file exists and show download button
     if st.session_state.output_file is not None:
         # Use Streamlit columns to place buttons side-by-side
