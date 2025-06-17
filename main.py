@@ -309,6 +309,16 @@ def get_product_ratings(ean, headers):
             logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
             return None,None
 
+        elif response.status_code == 429:
+            logging.warning(f"429 Rate limit hit for EAN {ean}. Sleeping and retrying...")
+            time.sleep(30)  # sleep for 60 seconds before retry
+            response = requests.get(url, headers=headers)
+            if response.status_code == 429:
+                logging.error(f"Still hitting rate limit for EAN {ean}. Skipping.")
+                return None, None
+            response.raise_for_status()
+            return response.json(), None
+
         response.raise_for_status()
         logging.info(f"Successfully fetched ratings for EAN: {ean}")
         return response.json(), headers['Authorization']
