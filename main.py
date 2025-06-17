@@ -281,7 +281,7 @@ def get_access_token():
     }
     try:
         # Make the request to get access token
-        response = requests.post(BOL_TOKEN_URL, headers=headers)
+        response = requests.post(BOL_TOKEN_URL, headers=headers,data=data)
 
         # Check if request was successful
         if response.status_code == 200:
