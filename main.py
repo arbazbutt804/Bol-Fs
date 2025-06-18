@@ -45,7 +45,8 @@ def analyze_listing():
 
 def update_excel_with_rating(listing_df, access_token):
     filtered_data = []
-    count =0
+    processed_eans = set()  # to track unique EANs processed
+    #count =0
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/vnd.retailer.v9+json'
@@ -54,8 +55,12 @@ def update_excel_with_rating(listing_df, access_token):
     for index, row in listing_df.iterrows():
         # if count >= 500:  # Stop after processing 100 products (for testing )
         #     break
-        ean = row['EAN']  # Make sure 'EAN' matches the exact column name in your local CSV
-        ean = int(ean)
+        ean = int(row['EAN'])  # Make sure 'EAN' matches the exact column name in your local CSV
+        # Check for repeating EANs
+        if ean in processed_eans:
+            logging.warning(f"EAN {ean} already processed earlier. Repetition detected. Stopping further processing.")
+            break
+        processed_eans.add(ean)
         ratings_response, new_token = get_product_ratings(ean, headers)
         # If token was refreshed, update headers and token for future requests
         if new_token:
@@ -69,8 +74,6 @@ def update_excel_with_rating(listing_df, access_token):
         if valid_ratings:
             min_rating = min(valid_ratings)
             filtered_data.append([ean, row['sku'], row['id'], min_rating])
-        count+=1
-
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
         time.sleep(1)
     return filtered_data
