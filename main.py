@@ -396,8 +396,8 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         projects = ['1205436216136693']
         tags = ['1209378911118666']
         notes_content = (f"<body><b>File attached in this task </b> \n"
-                                 "\n"
-                                 "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
+                         "\n"
+                         "<b>PLEASE TICK EACH ITEM ON YOUR CHECKLIST AS YOU GO</b></body>")
         payload = {
             "data": {
                 "projects": projects,
@@ -423,7 +423,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             }
             upload_url = f"https://app.asana.com/api/1.0/tasks/{task_gid}/attachments"
             files = {'file': (
-            'bol_F1_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+                'bol_F1_sku_details.xlsx', output, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
             attach_response = requests.post(upload_url, headers=headers, files=files)
 
             if attach_response.status_code == 200:
@@ -435,16 +435,21 @@ def create_asana_tasks_from_excel(send_to_asana=True):
         # Create the main task
         main_task_payload = {
             "data": {
+                "projects": ['1205436216136693'],
                 "name": "NEW F1's Needed",
-                "assignee": "1208716819375873",
+                "assignee": "1212339893488393",
                 "html_notes": "<body><b>Please can the following new F1's be created and added to the F1 Log <a href=\"https://docs.google.com/spreadsheets/d/1JesoDfHewylxsso0luFrY6KDclv3kvNjugnvMjRH2ak/edit#gid=0\" target=\"_blank\">here</a></b></body>",
                 "followers": ["1208388789142367"],
-                "workspace": "17406368418784"
             }
         }
         main_task_response = requests.post(url, json=main_task_payload, headers=headers)
         main_task_data = main_task_response.json()
         main_task_gid = main_task_data['data']['gid']
+        # Move task to BOL section
+        section_gid = "1209105851510374"
+        move_url = f"https://app.asana.com/api/1.0/sections/{section_gid}/addTask"
+        move_payload = {"data": {"task": main_task_gid}}
+        requests.post(move_url, json=move_payload, headers=headers)
 
         # Create subtasks
         subtask_url = f"https://app.asana.com/api/1.0/tasks/{main_task_gid}/subtasks"
