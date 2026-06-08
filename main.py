@@ -329,6 +329,8 @@ def get_product_ratings(ean, headers, max_retries=3):
         else:
             logging.error(f"Unexpected error {response.status_code} for EAN {ean}")
             return None, None
+    logging.error(f"Max retries exceeded for EAN {ean}. Giving up.")
+    return None, None
 def create_asana_tasks_from_excel(send_to_asana=True):
     print("create_asana_tasks_from_excel")
     if not send_to_asana:
