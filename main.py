@@ -472,7 +472,7 @@ def create_asana_tasks_from_excel(send_to_asana=True):
             "data": {
                 "projects": ['1205436216136693'],
                 "name": "NEW F1's Needed",
-                "assignee": "1212339893488393",
+                "assignee": "1215501445160667",
                 "html_notes": "<body><b>Please can the following new F1's be created and added to the F1 Log <a href=\"https://docs.google.com/spreadsheets/d/1JesoDfHewylxsso0luFrY6KDclv3kvNjugnvMjRH2ak/edit#gid=0\" target=\"_blank\">here</a></b></body>",
                 "followers": ["1208388789142367"],
             }
