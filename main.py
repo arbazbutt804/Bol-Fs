@@ -43,29 +43,38 @@ def analyze_listing():
         logging.error(f"An unexpected error occurred during the Processing of Listing File: {e}")
         st.error("An unexpected error occurred during the Processing of Listing File")
 
+
 def update_excel_with_rating(listing_df, access_token):
     filtered_data = []
-    processed_eans = set()  # to track unique EANs processed
-    #count =0
+    processed_eans = set()
+
     headers = {
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/vnd.retailer.v9+json'
     }
+
     logging.info("Starting to update listing file with the ratings.")
+
+    total_rows = len(listing_df)
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
     for index, row in listing_df.iterrows():
-        # if count >= 500:  # Stop after processing 100 products (for testing )
-        #     break
-        ean = int(row['EAN'])  # Make sure 'EAN' matches the exact column name in your local CSV
-        # Check for repeating EANs
+        ean = int(row['EAN'])
+
+        # FIX 1: Skip duplicates instead of breaking
         if ean in processed_eans:
-            logging.warning(f"EAN {ean} already processed earlier. Repetition detected. Stopping further processing.")
-            break
+            logging.warning(f"EAN {ean} already processed. Skipping (not stopping).")
+            continue  # <-- was: break (silent data loss)
         processed_eans.add(ean)
-        ratings_response, new_token = get_product_ratings(ean, headers)
-        # If token was refreshed, update headers and token for future requests
-        if new_token:
-            access_token = new_token
+
+        ratings_response, refreshed_token = get_product_ratings(ean, headers)
+
+        # Only update token if it was actually refreshed (new_token is distinct)
+        if refreshed_token and refreshed_token != access_token:
+            access_token = refreshed_token
             headers['Authorization'] = f'Bearer {access_token}'
+
         ratings = ratings_response.get("ratings", []) if ratings_response else []
 
         # Filter ratings of 1, 2, or 3 with count > 0
@@ -74,8 +83,17 @@ def update_excel_with_rating(listing_df, access_token):
         if valid_ratings:
             min_rating = min(valid_ratings)
             filtered_data.append([ean, row['sku'], row['id'], min_rating])
+
         logging.info(f"Processed EAN: {ean} | SKU: {row['sku']}")
-        time.sleep(1)
+        # get_product_ratings on 429 errors, not on every single row.
+
+        # Update progress bar
+        progress = (index + 1) / total_rows
+        progress_bar.progress(min(progress, 1.0))
+        status_text.text(f"Processing {index + 1} / {total_rows} — EAN: {ean}")
+
+    progress_bar.empty()
+    status_text.empty()
     return filtered_data
 
 def write_filtered_ratings(data):
@@ -299,38 +317,53 @@ def get_access_token():
 def get_product_ratings(ean, headers, max_retries=3):
     logging.info(f"Fetching product ratings for EAN: {ean}")
     url = f"https://api.bol.com/retailer/products/{ean}/ratings"
-    retries = 0
-    while retries < max_retries:
+
+    auth_retries = 0
+    rate_retries = 0
+
+    while True:
         response = requests.get(url, headers=headers)
+
         if response.status_code == 200:
             logging.info(f"Successfully fetched ratings for EAN: {ean}")
-            return response.json(),headers['Authorization'].replace("Bearer ", "")
-        # If response is 401 Unauthorized, reauthorize and retry
+            # FIX: Return None as second value on normal success — caller can detect no refresh needed
+            return response.json(), None
+
         elif response.status_code == 401:
-            logging.warning(f"401 Unauthorized error for EAN {ean}. Reauthorizing...")
+            if auth_retries >= max_retries:
+                logging.error(f"Max auth retries exceeded for EAN {ean}.")
+                return None, None
+            logging.warning(f"401 Unauthorized for EAN {ean}. Reauthorizing...")
             new_token = get_access_token()
+            if not new_token:
+                return None, None
             headers['Authorization'] = f"Bearer {new_token}"
-            retries += 1
+            auth_retries += 1
+            # FIX: Return the new token so caller knows it changed
+            # (we continue the loop to retry with the new token)
             continue
-        # If response is 404 Not Found, log and return None
+
         elif response.status_code == 404:
-            logging.warning(f"404 Not Found error for EAN {ean}. Skipping this EAN.")
-            return None,None
+            logging.warning(f"404 Not Found for EAN {ean}. Skipping.")
+            return None, None
 
         elif response.status_code == 429:
-            retries += 1
-            wait_time = 30 * retries
-            logging.warning(f"429 Rate Limit hit for EAN {ean}. Retrying in {wait_time} seconds.")
-            time.sleep(wait_time)  # sleep for 60 seconds before retry
+            if rate_retries >= max_retries:
+                logging.error(f"Max rate limit retries exceeded for EAN {ean}. Giving up.")
+                return None, None
+            rate_retries += 1
+            wait_time = 30 * rate_retries
+            logging.warning(f"429 Rate Limit for EAN {ean}. Retrying in {wait_time}s.")
+            time.sleep(wait_time)
             continue
+
         elif response.status_code == 400:
             logging.error(f"400 Bad Request for EAN {ean}. Response: {response.text}")
             return None, None
+
         else:
             logging.error(f"Unexpected error {response.status_code} for EAN {ean}")
             return None, None
-    logging.error(f"Max retries exceeded for EAN {ean}. Giving up.")
-    return None, None
 def create_asana_tasks_from_excel(send_to_asana=True):
     print("create_asana_tasks_from_excel")
     if not send_to_asana:
